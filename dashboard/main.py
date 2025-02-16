@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import time
+import pandas as pd
 
 st.set_page_config(
     page_title="Deaf Assistance Dashboard",
@@ -62,36 +63,6 @@ st.markdown(
         }
         .user-box p { margin: 5px 0; font-size: 18px; color: #ffffff; }
         .user-box span { font-weight: bold; color: #ff9800; }
-        .menu-bar {
-            background-color: #1e1e1e;
-            padding: 10px 0;
-            text-align: center;
-            box-shadow: 0px 4px 10px rgba(255,255,255,0.2);
-            margin-bottom: 20px;
-        }
-        .menu-item {
-            display: inline-block;
-            margin: 0 15px;
-            padding: 10px 20px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #ffffff;
-            text-decoration: none;
-            transition: 0.3s;
-        }
-        .menu-item:hover {
-            color: #ff9800;
-        }
-        .sidebar-title {
-            font-size: 22px;
-            font-weight: bold;
-            text-align: center;
-            padding: 15px;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #ff4b4b, #ff9800);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
         .sidebar-container {
             padding: 15px;
             background-color: #1e1e1e;
@@ -106,31 +77,44 @@ st.markdown(
             margin: 5px 0;
             border-radius: 5px;
             transition: 0.3s;
+            cursor: pointer;
         }
         .sidebar-item:hover {
             background-color: #ff9800;
             color: black;
+        }
+        .event-history-btn {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
         }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-st.markdown("""
-    <div class='menu-bar'>
-        <a class='menu-item' href='#'>🏠 Home</a>
-        <a class='menu-item' href='#'>📊 Dashboard</a>
-        <a class='menu-item' href='#'>⚙️ Settings</a>
-        <a class='menu-item' href='#'>🔓 Logout</a>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("""<div class='menu-bar'>
+    <a class='menu-item' href='#'>🏠 Home</a>
+    <a class='menu-item' href='#'>📊 Dashboard</a>
+    <a class='menu-item' href='#'>⚙️ Settings</a>
+    <a class='menu-item' href='#'>🔓 Logout</a>
+</div>""", unsafe_allow_html=True)
 
 st.sidebar.markdown("<div class='sidebar-container'>", unsafe_allow_html=True)
 st.sidebar.markdown("<div class='sidebar-title'>🔔 Deaf Assistance Dashboard</div>", unsafe_allow_html=True)
 st.sidebar.markdown("<div class='sidebar-item'>📡 Live Alerts</div>", unsafe_allow_html=True)
-st.sidebar.markdown("<div class='sidebar-item'>📜 Event History</div>", unsafe_allow_html=True)
 st.sidebar.markdown("<div class='sidebar-item'>🔧 Device Settings</div>", unsafe_allow_html=True)
 st.sidebar.markdown("<div class='sidebar-item'>📞 Support</div>", unsafe_allow_html=True)
+
+# Ensure toggle works properly
+if "show_history" not in st.session_state:
+    st.session_state["show_history"] = False
+
+st.sidebar.markdown("<div class='event-history-btn'>", unsafe_allow_html=True)
+if st.sidebar.button("📜 Event History", use_container_width=True):
+    st.session_state["show_history"] = not st.session_state["show_history"]
+st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
 st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("<div class='header-title'>Deaf Assistance Alert System</div>", unsafe_allow_html=True)
@@ -140,6 +124,7 @@ st.markdown("<p>👤 Logged in as: <span>John</span></p>", unsafe_allow_html=Tru
 st.markdown("<p>📅 Last Login: <span>Today</span></p>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
+# Read the alert from alert.json
 def read_alert():
     if os.path.exists("alert.json"):
         with open("alert.json", "r") as f:
@@ -159,6 +144,7 @@ if latest_event in ["fire", "knock", "default"]:
 
 st.markdown("<div class='main-container'>", unsafe_allow_html=True)
 
+# Display the current alert
 if st.session_state.get("alert") == "fire":
     st.markdown("<div class='alert-box fire'>🔥 Fire Detected! 🔥</div>", unsafe_allow_html=True)
 elif st.session_state.get("alert") == "knock":
@@ -169,6 +155,36 @@ else:
     st.markdown("<div class='alert-box no-alert'>✅ No Alerts</div>", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+# 🔥 Event History with Metrics and Chart
+if st.session_state["show_history"]:
+    if os.path.exists("history.json"):
+        with open("history.json", "r") as f:
+            try:
+                history_data = json.load(f)
+                df = pd.DataFrame(history_data)
+
+                event_counts = df["event"].value_counts().to_dict()
+                fire_count = event_counts.get("fire", 0)
+                knock_count = event_counts.get("knock", 0)
+                default_count = event_counts.get("default", 0)
+
+                st.markdown("<h2 style='color:#ff9800;'>📊 Event Statistics</h2>", unsafe_allow_html=True)
+                col1, col2, col3 = st.columns(3)
+                col1.metric("🔥 Fire Events", fire_count, delta=fire_count)
+                col2.metric("🚪 Knock Events", knock_count, delta=knock_count)
+                col3.metric("✅ Default Events", default_count, delta=default_count)
+
+                st.markdown("<h3 style='color:#ffffff;'>📈 Event Trend</h3>", unsafe_allow_html=True)
+                st.bar_chart(df["event"].value_counts())
+
+                st.markdown("<h3 style='color:#ffffff;'>📜 Event Log</h3>", unsafe_allow_html=True)
+                st.dataframe(df, use_container_width=True)
+
+            except json.JSONDecodeError:
+                st.warning("Error reading history.json")
+    else:
+        st.warning("No history found.")
 
 time.sleep(2)
 st.rerun()
