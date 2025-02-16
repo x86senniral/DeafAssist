@@ -1,26 +1,20 @@
+#include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1331.h>
-#include <SPI.h>
+#include <Adafruit_SSD1306.h>
 
-#define sclk 13  
-#define mosi 11  
-#define cs   10  
-#define rst  9   
-#define dc   8   
+// OLED Display Configuration
+#define SCREEN_WIDTH 128  
+#define SCREEN_HEIGHT 64  
+#define OLED_RESET    -1   
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-Adafruit_SSD1331 display = Adafruit_SSD1331(cs, dc, mosi, sclk, rst);
-
-const int soundSensorPin = A0; // Sound sensor connected to A0
-const int buzzerPin = 3;       // Buzzer connected to D3
-
-#define BLACK   0x0000
-#define RED     0xF800
-#define GREEN   0x07E0
-#define WHITE   0xFFFF
+// Sound Sensor & Buzzer Configuration
+const int soundSensorPin = A0; 
+const int buzzerPin = 3;       
 
 // Sound Thresholds
-const int fireThreshold = 120;
-const int knockThreshold = 70;
+const int fireThreshold = 1050;
+const int knockThreshold = 1000;
 
 // Time Tracking
 unsigned long lastStateChange = 0;
@@ -33,13 +27,17 @@ bool stateLocked = false;
 
 void setup() {
     Serial.begin(9600);
-    display.begin();
-  
-    display.fillScreen(BLACK);
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.println("System Ready!");
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println("SSD1306 OLED failed to start");
+        for (;;);
+    }
+
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 20);
+    display.println("System Ready");
+    display.display();
 
     pinMode(soundSensorPin, INPUT);
     pinMode(buzzerPin, OUTPUT);
@@ -52,7 +50,7 @@ void loop() {
     Serial.println(soundValue);
 
     unsigned long now = millis(); 
-    
+
     if (stateLocked && now - lastStateChange < defaultDuration) {
         return; 
     }
@@ -63,8 +61,8 @@ void loop() {
             currentState = "fire";
             lastStateChange = now;
             stateLocked = true;
-            Serial.println("🔥 Fire Detected!");
-            triggerAlert("🔥 Fire Alarm!", RED, 1000, fireDuration);
+            Serial.println("fire");  // ✅ Sends "fire" instead of "🔥 Fire Detected!"
+            triggerAlert("🔥 FIRE", SSD1306_WHITE, 1000, fireDuration);
         }
     } 
     else if (soundValue > knockThreshold && soundValue <= fireThreshold) { 
@@ -72,8 +70,8 @@ void loop() {
             currentState = "knock";
             lastStateChange = now;
             stateLocked = true;
-            Serial.println("🚪 Knock Detected!");
-            triggerAlert("🚪 Door Knock!", GREEN, 500, knockDuration);
+            Serial.println("knock");  // ✅ Sends "knock" instead of "🚪 Knock Detected!"
+            triggerAlert("🔶 KNOCK", SSD1306_WHITE, 500, knockDuration);
         }
     } 
     else if (soundValue <= knockThreshold) {
@@ -81,11 +79,15 @@ void loop() {
             currentState = "default";
             lastStateChange = now;
             stateLocked = true;
-            Serial.println("✅ Default State");
-            display.fillScreen(BLACK);
-            display.setCursor(0, 0);
-            display.setTextColor(WHITE);
-            display.println("Monitoring...");
+            Serial.println("default");  // ✅ Sends "default" instead of "✅ Default State"
+
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(10, 20);
+            display.println("No Alerts");
+            display.display();
+
             noTone(buzzerPin); 
         }
     }
@@ -93,15 +95,23 @@ void loop() {
     delay(100);
 }
 
-void triggerAlert(const char* message, uint16_t color, int toneFrequency, int duration) {
-    display.fillScreen(color);
-    display.setCursor(0, 0);
-    display.setTextColor(WHITE);
+void triggerAlert(const char* message, uint16_t textColor, int toneFrequency, int duration) {
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(textColor);
+    display.setCursor(10, 20);
+    display.setTextWrap(false);
     display.println(message);
-    
+    display.display();
+
     tone(buzzerPin, toneFrequency);
     delay(duration);
     noTone(buzzerPin);
 
-    display.fillScreen(BLACK);
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(10, 20);
+    display.println("No Alerts");
+    display.display();
 }
