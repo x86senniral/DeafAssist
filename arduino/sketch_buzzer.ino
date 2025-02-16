@@ -13,7 +13,7 @@ const int soundSensorPin = A0;
 const int buzzerPin = 3;       
 
 // Sound Thresholds
-const int fireThreshold = 1050;
+const int fireThreshold = 1020;
 const int knockThreshold = 1000;
 
 // Time Tracking
