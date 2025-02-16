@@ -1,7 +1,7 @@
 import requests
 import argparse
 
-url = "ngrok/set_alert"
+url = " http://localhost:5000/set_alert"
 headers = {
     "ngrok-skip-browser-warning": "true",
     "Content-Type": "application/json"
